@@ -46,7 +46,7 @@ contract Zen {
     function acceptSwap(address offerer) public {
         ZenSwap memory swap = activeSwaps[offerer];
 
-        if (block.timestamp > swap.timestamp) revert TimeExpired();
+        if (block.timestamp > swap.expiresAt) revert TimeExpired();
         if (swap.counterParty != msg.sender) revert NonexistentTrade();
 
         uint256 offererLength = swap.offerTokens.length;
