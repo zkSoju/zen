@@ -41,16 +41,28 @@ contract ZenTest is DSTestPlus {
 
         uint256[] memory whale1Tokens = new uint256[](2);
         whale1Tokens[0] = 7782;
-        whale1Tokens[0] = 9909;
+        whale1Tokens[1] = 9909;
 
         uint256[] memory whale2Tokens = new uint256[](2);
         whale2Tokens[0] = 8024;
         whale2Tokens[1] = 6365;
 
+        assertEq(azuki.ownerOf(7782), address(zenWhale1));
+        assertEq(azuki.ownerOf(8024), address(zenWhale2));
+
+        azuki.setApprovalForAll(address(zen), true);
         zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens);
 
-        emit log_address(swap.counterParty);
+        vm.stopPrank();
 
-        startHoax(address(0xCAFE), address(0xCAFE));
+        emit log_address(zen.getTrade(zenWhale1));
+
+        startHoax(zenWhale2, zenWhale2);
+
+        azuki.setApprovalForAll(address(zen), true);
+        zen.acceptSwap(zenWhale1);
+
+        assertEq(azuki.ownerOf(8024), address(zenWhale1));
+        assertEq(azuki.ownerOf(7782), address(zenWhale2));
     }
 }
