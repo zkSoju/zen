@@ -25,44 +25,58 @@ contract ZenTest is DSTestPlus {
     address zenWhale1 = 0x8ffa85a0c59Cf23967eb31C060B2ca3A920276E1;
     address zenWhale2 = 0x07cc65Ec4de72Fdf7d2B6C39Fd80c4EA4706215B;
 
+    /// Initialize arguments for swap
+    uint256[] private whale1Tokens = new uint256[](2);
+
+    uint256[] private whale2Tokens = new uint256[](2);
+
     function setUp() public {
         zen = new Zen();
+
+        whale1Tokens[0] = 7782;
+        whale1Tokens[1] = 9909;
+
+        whale2Tokens[0] = 8024;
+        whale2Tokens[1] = 6365;
     }
 
-    function testTrade() public {
+    function testSwap() public {
+        /// Start hoax as offering party
         startHoax(zenWhale1, zenWhale1);
 
         uint256 zenWhale1Balance = azuki.balanceOf(zenWhale1);
         uint256 zenWhale2Balance = azuki.balanceOf(zenWhale2);
 
-        emit log_uint(zenWhale1Balance);
+        /// Assert token balance of accounts are greater than 0
+        assert(zenWhale1Balance > 0);
+        assert(zenWhale1Balance > 0);
 
-        emit log_uint(zenWhale2Balance);
-
-        uint256[] memory whale1Tokens = new uint256[](2);
-        whale1Tokens[0] = 7782;
-        whale1Tokens[1] = 9909;
-
-        uint256[] memory whale2Tokens = new uint256[](2);
-        whale2Tokens[0] = 8024;
-        whale2Tokens[1] = 6365;
-
+        /// Assert ownership of tokens
         assertEq(azuki.ownerOf(7782), address(zenWhale1));
         assertEq(azuki.ownerOf(8024), address(zenWhale2));
 
+        /// Set approval for operating contract
         azuki.setApprovalForAll(address(zen), true);
-        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens);
+
+        /// Initiate swap
+        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
 
         vm.stopPrank();
 
-        emit log_address(zen.getTrade(zenWhale1));
+        (, , address counterParty, , ) = zen.getSwap(zenWhale1);
+        emit log_address(counterParty);
 
+        /// Start hoax as counter party
         startHoax(zenWhale2, zenWhale2);
 
+        /// Accept existing trade
         azuki.setApprovalForAll(address(zen), true);
         zen.acceptSwap(zenWhale1);
 
+        /// Assert token swap is successful
         assertEq(azuki.ownerOf(8024), address(zenWhale1));
         assertEq(azuki.ownerOf(7782), address(zenWhale2));
     }
+
+    function testInvalidSwaps() public {}
 }
