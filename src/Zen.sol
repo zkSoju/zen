@@ -6,15 +6,25 @@ import "@openzeppelin/interfaces/IERC721.sol";
 /// @title Zen (Red Bean Swap)
 /// @author The Garden
 contract Zen {
+    /// >>>>>>>>>>>>>>>>>>>>>>>>>  CUSTOM ERRORS   <<<<<<<<<<<<<<<<<<<<<<<<< ///
+
     error NonexistentTrade();
+
     error TimeExpired();
+
     error InvalidAction();
+
     error DeniedOwnership();
 
-    event CreatedSwap(ZenSwap);
-    event AcceptedSwap(ZenSwap);
+    /// >>>>>>>>>>>>>>>>>>>>>>>>>  METADATA   <<<<<<<<<<<<<<<<<<<<<<<<< ///
 
-    uint256 internal constant MAX_SWAP_SIZE = 10;
+    event SwapCreated(ZenSwap);
+
+    event SwapAccepted(ZenSwap);
+
+    event SwapUpdated(ZenSwap);
+
+    event SwapCanceled(ZenSwap);
 
     /// @notice AzukiZen contract on mainnet
     IERC721 private constant IZen =
@@ -66,7 +76,7 @@ contract Zen {
 
         activeSwaps[msg.sender] = swap;
 
-        emit CreatedSwap(swap);
+        emit SwapCreated(swap);
     }
 
     /// @notice Accepts an existing swap.
@@ -99,7 +109,9 @@ contract Zen {
             }
         }
 
-        emit AcceptedSwap(swap);
+        delete activeSwaps[offerer];
+
+        emit SwapAccepted(swap);
     }
 
     /// @notice Batch verifies that the specified owner is the owner of all tokens.
@@ -146,6 +158,10 @@ contract Zen {
 
     /// @notice Manually deletes existing swap.
     function cancelSwap() public {
-        delete activeSwaps[msg.sender];
+        ZenSwap memory swap = activeSwaps[msg.sender];
+
+        delete swap;
+
+        emit SwapCanceled(swap);
     }
 }
