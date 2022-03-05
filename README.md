@@ -1,8 +1,6 @@
-# zen ⛩️
+# zen ⛩️ • [![tests](https://github.com/zksoju/zen/actions/workflows/tests.yml/badge.svg)](https://github.com/zksoju/zen/actions/workflows/tests.yml) [![lints](https://github.com/zksoju/zen/actions/workflows/lints.yml/badge.svg)](https://github.com/zksoju/zen/actions/workflows/lints.yml)
 
-## Overview
-
-Zen is the garden inclusive community-built swapping mechanism for the Azuki community.
+Zen is the garden inclusive and zero fee swapping mechanism for the Azuki community. Built by the community, for the community. _IKZ!_
 
 ## Features
 
@@ -16,12 +14,13 @@ Zen is the garden inclusive community-built swapping mechanism for the Azuki com
 
 ## Gas Usage
 
-At current gas prices (52 gwei/gas):
+At gas prices `(52 gwei/gas)` at `$2,610/ETH` conversion rate the following are prices on average:
 
--   Create a swap: $16.82
--   Accept a swap: $6.592
+-   **Create a swap:** $10.50 (77444 gas)
+-   **Accept a swap:** $4.75 (34998 gas)
+-   **Cancel a swap:** $1.43 (10581 gas)
 
-![snapshot](/snapshots/1.png)
+![snapshot](/snapshots/3.png)
 
 ## Blueprint
 
