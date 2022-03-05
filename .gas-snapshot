@@ -1,0 +1,4 @@
+ZenTest:testInvalidSwaps() (gas: 9303)
+ZenTest:testSwap() (gas: 139986)
+ZenTest:testSwapAccept() (gas: 101666)
+ZenTest:testSwapCreate() (gas: 22482)

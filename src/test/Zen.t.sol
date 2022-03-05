@@ -10,13 +10,6 @@ import "@openzeppelin/interfaces/IERC721.sol";
 contract ZenTest is DSTestPlus {
     Zen zen;
 
-    struct zenSwap {
-        address counterParty;
-        uint256[] initTokens;
-        uint256[] counterTokens;
-        uint256 expiresAt;
-    }
-
     address private constant azukiContract =
         0xED5AF388653567Af2F388E6224dC7C4b3241C544;
 
@@ -38,10 +31,21 @@ contract ZenTest is DSTestPlus {
 
         whale2Tokens[0] = 8024;
         whale2Tokens[1] = 6365;
+
+        /// Imitate as offering party
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Set approval for operating contract
+        azuki.setApprovalForAll(address(zen), true);
+
+        /// Setup a single valid swap
+        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
+
+        vm.stopPrank();
     }
 
     function testSwap() public {
-        /// Start hoax as offering party
+        /// Imitate as offering party
         startHoax(zenWhale1, zenWhale1);
 
         uint256 zenWhale1Balance = azuki.balanceOf(zenWhale1);
@@ -63,20 +67,64 @@ contract ZenTest is DSTestPlus {
 
         vm.stopPrank();
 
+        /// Get active swap from offering party
         (, , address counterParty, , ) = zen.getSwap(zenWhale1);
         emit log_address(counterParty);
 
-        /// Start hoax as counter party
+        /// Imitate as counter party
         startHoax(zenWhale2, zenWhale2);
 
         /// Accept existing trade
         azuki.setApprovalForAll(address(zen), true);
         zen.acceptSwap(zenWhale1);
 
+        vm.stopPrank();
+
         /// Assert token swap is successful
         assertEq(azuki.ownerOf(8024), address(zenWhale1));
         assertEq(azuki.ownerOf(7782), address(zenWhale2));
     }
 
-    function testInvalidSwaps() public {}
+    function testSwapCreate() public {
+        /// Imitate as offering party
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Set approval for operating contract
+        azuki.setApprovalForAll(address(zen), true);
+
+        /// Initiate swap
+        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
+
+        vm.stopPrank();
+    }
+
+    function testSwapAccept() public {
+        /// Imitate as counter party
+        startHoax(zenWhale2, zenWhale2);
+
+        /// Accept existing trade
+        azuki.setApprovalForAll(address(zen), true);
+        zen.acceptSwap(zenWhale1);
+
+        vm.stopPrank();
+    }
+
+    function testInvalidSwaps() public {
+        /// Imitate as offering party
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Set approval for operating contract
+        azuki.setApprovalForAll(address(zen), true);
+
+        vm.stopPrank();
+
+        /// Imitate as malicious party
+        startHoax(address(1337), address(1337));
+
+        /// Expect revert for external party trying to accept swap
+        vm.expectRevert(
+            abi.encodePacked(bytes4(keccak256("NonexistentTrade()")))
+        );
+        zen.acceptSwap(zenWhale1);
+    }
 }

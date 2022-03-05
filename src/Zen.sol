@@ -3,8 +3,8 @@ pragma solidity 0.8.11;
 
 import "@openzeppelin/interfaces/IERC721.sol";
 
-/// @title Zen (Red Bean Swapper)
-/// @author zkSoju <soju@zkrlabs.com>
+/// @title Zen (Red Bean Swap)
+/// @author The Garden
 contract Zen {
     error NonexistentTrade();
     error TimeExpired();
@@ -74,9 +74,9 @@ contract Zen {
     function acceptSwap(address offerer) public {
         ZenSwap memory swap = activeSwaps[offerer];
 
+        if (swap.counterParty != msg.sender) revert NonexistentTrade();
         if (block.timestamp > swap.createdAt + swap.allotedTime)
             revert TimeExpired();
-        if (swap.counterParty != msg.sender) revert NonexistentTrade();
 
         uint256 offererLength = swap.offerTokens.length;
         uint256 counterLength = swap.counterTokens.length;
