@@ -18,13 +18,9 @@ contract ZenTest is DSTestPlus {
     address zenWhale1 = 0x8ffa85a0c59Cf23967eb31C060B2ca3A920276E1;
     address zenWhale2 = 0x07cc65Ec4de72Fdf7d2B6C39Fd80c4EA4706215B;
 
-    /// Initialize arguments for swap
-    uint256[] private whale1Tokens = new uint256[](2);
-
-    uint256[] private whale2Tokens = new uint256[](2);
-
     function setUp() public {
         zen = new Zen();
+    }
 
     function testSingleSwap() public {
         /// Initialize arguments for swap
@@ -78,22 +74,10 @@ contract ZenTest is DSTestPlus {
         whale1Tokens[0] = 7782;
         whale1Tokens[1] = 9909;
 
+        uint256[] memory whale2Tokens = new uint256[](2);
         whale2Tokens[0] = 8024;
         whale2Tokens[1] = 6365;
 
-        /// Imitate as offering party
-        startHoax(zenWhale1, zenWhale1);
-
-        /// Set approval for operating contract
-        azuki.setApprovalForAll(address(zen), true);
-
-        /// Setup a single valid swap
-        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
-
-        vm.stopPrank();
-    }
-
-    function testSwap() public {
         /// Imitate as offering party
         startHoax(zenWhale1, zenWhale1);
 
@@ -150,30 +134,6 @@ contract ZenTest is DSTestPlus {
         /// Set approval for operating contract
         azuki.setApprovalForAll(address(zen), true);
 
-        /// Initiate swap
-        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
-
-        vm.stopPrank();
-    }
-
-    function testSwapAccept() public {
-        /// Imitate as counter party
-        startHoax(zenWhale2, zenWhale2);
-
-        /// Accept existing trade
-        azuki.setApprovalForAll(address(zen), true);
-        zen.acceptSwap(zenWhale1);
-
-        vm.stopPrank();
-    }
-
-    function testInvalidSwaps() public {
-        /// Imitate as offering party
-        startHoax(zenWhale1, zenWhale1);
-
-        /// Set approval for operating contract
-        azuki.setApprovalForAll(address(zen), true);
-
         vm.stopPrank();
 
         /// Imitate as malicious party
@@ -184,5 +144,31 @@ contract ZenTest is DSTestPlus {
             abi.encodePacked(bytes4(keccak256("NonexistentTrade()")))
         );
         zen.acceptSwap(zenWhale1);
+
+        uint256[] memory whale1Tokens = new uint256[](2);
+        whale1Tokens[0] = 7782;
+        whale1Tokens[1] = 9909;
+
+        uint256[] memory fakeTokens = new uint256[](1);
+        fakeTokens[0] = 0;
+
+        /// Assert address does not own tokens
+        assert(azuki.ownerOf(fakeTokens[0]) != address(1337));
+
+        /// Expect revert for creating a swap with tokens offerer does not own
+        vm.expectRevert(
+            abi.encodePacked(bytes4(keccak256("DeniedOwnership()")))
+        );
+        zen.initiateSwap(fakeTokens, zenWhale1, whale1Tokens, 1 days);
+
+        vm.stopPrank();
+
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Expect revert for creating a swap with tokens counter party does not own
+        vm.expectRevert(
+            abi.encodePacked(bytes4(keccak256("DeniedOwnership()")))
+        );
+        zen.initiateSwap(whale1Tokens, address(1337), fakeTokens, 1 days);
     }
 }
