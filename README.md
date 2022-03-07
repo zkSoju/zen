@@ -4,12 +4,14 @@ Zen is the garden inclusive and zero fee swapping mechanism for the Azuki commun
 
 ## Features
 
--   [x] Swap mechanic
+-   [ ] Swap mechanic
     -   [x] Base swap functionality (ERC721A)
     -   [x] Ownership validation
-    -   [ ] $BOBU support
+    -   [x] $BOBU support
 -   [ ] Testing suite
-    -   [ ] Isolated `initiateSwap` and `acceptSwap` tests
+    -   [x] Isolated `createSwap` and `acceptSwap` tests
+    -   [x] Composite ERC721 + ERC1155 tests
+    -   [ ] Test invalid swaps, cancelation,
     -   [ ] Test ownership and swap validation
 
 ## Gas Usage
