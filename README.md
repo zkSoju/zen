@@ -1,6 +1,8 @@
 # zen ⛩️ • [![tests](https://github.com/zksoju/zen/actions/workflows/tests.yml/badge.svg)](https://github.com/zksoju/zen/actions/workflows/tests.yml) [![lints](https://github.com/zksoju/zen/actions/workflows/lints.yml/badge.svg)](https://github.com/zksoju/zen/actions/workflows/lints.yml)
 
-Zen is the garden inclusive and zero fee swapping mechanism for the Azuki community. Built by the community, for the community. _IKZ!_
+Introducing Zen, Zen is the garden inclusive and zero fee swapping mechanism for the Azuki community. Have peace of mind whilst finding your forever bean. Built by the community, for the community. _IKZ!_
+
+Refer to https://github.com/zkSoju/zen-next for the dApp.
 
 ## Features
 
@@ -11,7 +13,9 @@ Zen is the garden inclusive and zero fee swapping mechanism for the Azuki commun
 -   [ ] Testing suite
     -   [x] Isolated `createSwap` and `acceptSwap` tests
     -   [x] Composite ERC721 + ERC1155 tests
-    -   [ ] Test invalid swaps, cancelation,
+    -   [ ] Isolated ERC721 Tests
+    -   [ ] Isolated ERC1155 Tests (shouldn't be able to swap?)
+    -   [ ] Test invalid swaps and cancelations
     -   [ ] Test ownership and swap validation
 
 ## Gas Usage
