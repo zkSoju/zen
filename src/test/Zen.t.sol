@@ -7,22 +7,33 @@ import {Zen} from "../Zen.sol";
 
 import "@openzeppelin/interfaces/IERC721.sol";
 
+import "@openzeppelin/interfaces/IERC1155.sol";
+
 contract ZenTest is DSTestPlus {
     Zen zen;
 
-    address private constant azukiContract =
-        0xED5AF388653567Af2F388E6224dC7C4b3241C544;
+    /// @notice Azuki contract on mainnet
+    IERC721 private constant IAzuki =
+        IERC721(0xED5AF388653567Af2F388E6224dC7C4b3241C544);
 
-    IERC721 azuki = IERC721(azukiContract);
+    /// @notice BOBU contract on mainnet
+    IERC1155 private constant IBobu =
+        IERC1155(0x2079812353E2C9409a788FBF5f383fa62aD85bE8);
 
     address zenWhale1 = 0x8ffa85a0c59Cf23967eb31C060B2ca3A920276E1;
     address zenWhale2 = 0x07cc65Ec4de72Fdf7d2B6C39Fd80c4EA4706215B;
 
+    address bobuWhale1 = 0x103fC5759305e59DBE6C3355d11C35A213A5252C;
+
     function setUp() public {
         zen = new Zen();
+
+        vm.label(zenWhale1, "Azuki Whale #1");
+        vm.label(zenWhale1, "Azuki Whale #2");
+        vm.label(bobuWhale1, "Bobu Whale #1");
     }
 
-    function testSingleSwap() public {
+    function testSingleSwap721() public {
         /// Initialize arguments for swap
         uint256[] memory whale1Tokens = new uint256[](1);
         whale1Tokens[0] = 7782;
@@ -33,21 +44,21 @@ contract ZenTest is DSTestPlus {
         /// Imitate as offering party
         startHoax(zenWhale1, zenWhale1);
 
-        uint256 zenWhale1Balance = azuki.balanceOf(zenWhale1);
-        uint256 zenWhale2Balance = azuki.balanceOf(zenWhale2);
+        uint256 zenWhale1Balance = IAzuki.balanceOf(zenWhale1);
+        uint256 zenWhale2Balance = IAzuki.balanceOf(zenWhale2);
 
         /// Assert token balance of accounts are greater than 0
         assert(zenWhale1Balance > 0);
         assert(zenWhale1Balance > 0);
 
         /// Assert ownership of tokens
-        assertEq(azuki.ownerOf(7782), address(zenWhale1));
+        assertEq(IAzuki.ownerOf(7782), address(zenWhale1));
 
         /// Set approval for operating contract
-        azuki.setApprovalForAll(address(zen), true);
+        IAzuki.setApprovalForAll(address(zen), true);
 
         /// Initiate swap
-        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
+        zen.createSwap(whale1Tokens, 0, zenWhale2, whale2Tokens, 0, 1 days);
 
         vm.stopPrank();
 
@@ -55,20 +66,20 @@ contract ZenTest is DSTestPlus {
         startHoax(zenWhale2, zenWhale2);
 
         /// Accept existing trade
-        azuki.setApprovalForAll(address(zen), true);
+        IAzuki.setApprovalForAll(address(zen), true);
         zen.acceptSwap(zenWhale1);
 
         /// Assert that swap is deleted from mapping after successful swap
-        (, , address counterParty, , ) = zen.getSwap(zenWhale1);
+        (, , , , address counterParty, , ) = zen.getSwap(zenWhale1);
         assert(counterParty == address(0x0));
 
         vm.stopPrank();
 
         /// Assert token swap is successful
-        assertEq(azuki.ownerOf(8024), address(zenWhale1));
+        assertEq(IAzuki.ownerOf(8024), address(zenWhale1));
     }
 
-    function testMultiSwap() public {
+    function testMultiSwap721() public {
         /// Initialize arguments for swap
         uint256[] memory whale1Tokens = new uint256[](2);
         whale1Tokens[0] = 7782;
@@ -81,22 +92,22 @@ contract ZenTest is DSTestPlus {
         /// Imitate as offering party
         startHoax(zenWhale1, zenWhale1);
 
-        uint256 zenWhale1Balance = azuki.balanceOf(zenWhale1);
-        uint256 zenWhale2Balance = azuki.balanceOf(zenWhale2);
+        uint256 zenWhale1Balance = IAzuki.balanceOf(zenWhale1);
+        uint256 zenWhale2Balance = IAzuki.balanceOf(zenWhale2);
 
         /// Assert token balance of accounts are greater than 0
         assert(zenWhale1Balance > 0);
         assert(zenWhale1Balance > 0);
 
         /// Assert ownership of tokens
-        assertEq(azuki.ownerOf(7782), address(zenWhale1));
-        assertEq(azuki.ownerOf(8024), address(zenWhale2));
+        assertEq(IAzuki.ownerOf(7782), address(zenWhale1));
+        assertEq(IAzuki.ownerOf(8024), address(zenWhale2));
 
         /// Set approval for operating contract
-        azuki.setApprovalForAll(address(zen), true);
+        IAzuki.setApprovalForAll(address(zen), true);
 
         /// Initiate swap
-        zen.initiateSwap(whale1Tokens, zenWhale2, whale2Tokens, 1 days);
+        zen.createSwap(whale1Tokens, 0, zenWhale2, whale2Tokens, 0, 1 days);
 
         vm.stopPrank();
 
@@ -104,26 +115,75 @@ contract ZenTest is DSTestPlus {
         startHoax(zenWhale2, zenWhale2);
 
         /// Accept existing trade
-        azuki.setApprovalForAll(address(zen), true);
+        IAzuki.setApprovalForAll(address(zen), true);
         zen.acceptSwap(zenWhale1);
 
         vm.stopPrank();
 
         /// Assert that swap is deleted from mapping after successful swap
-        (, , address counterParty, , ) = zen.getSwap(zenWhale1);
+        (, , , , address counterParty, , ) = zen.getSwap(zenWhale1);
         assert(counterParty == address(0x0));
 
         /// Assert token swap is successful
-        assertEq(azuki.ownerOf(8024), address(zenWhale1));
-        assertEq(azuki.ownerOf(7782), address(zenWhale2));
+        assertEq(IAzuki.ownerOf(8024), address(zenWhale1));
+        assertEq(IAzuki.ownerOf(7782), address(zenWhale2));
+    }
+
+    function testCompositeSwap() public {
+        /// Initialize arguments for swap
+        uint256[] memory bobuWhale1Tokens = new uint256[](2);
+        bobuWhale1Tokens[0] = 1610;
+        bobuWhale1Tokens[1] = 4257;
+
+        uint256 bobuQuantity = 20;
+
+        emit log_uint(IBobu.balanceOf(bobuWhale1, 1));
+
+        uint256[] memory whale1Tokens = new uint256[](2);
+        whale1Tokens[0] = 7782;
+        whale1Tokens[1] = 9909;
+
+        startHoax(bobuWhale1, bobuWhale1);
+
+        /// Set approval for operating contract
+        IAzuki.setApprovalForAll(address(zen), true);
+        IBobu.setApprovalForAll(address(zen), true);
+
+        /// Create swap for
+        /// `bobuWhale1Tokens` + `bobuQuantity` BOBU <-> `whale1Tokens`
+        zen.createSwap(
+            bobuWhale1Tokens,
+            bobuQuantity,
+            zenWhale1,
+            whale1Tokens,
+            0,
+            1 days
+        );
+
+        vm.stopPrank();
+
+        /// Start hoax
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Set approval for operating contract
+        IAzuki.setApprovalForAll(address(zen), true);
+
+        /// Successful swap
+        zen.acceptSwap(bobuWhale1);
+
+        assert(IBobu.balanceOf(zenWhale1, 1) == bobuQuantity);
     }
 
     function testCancelSwap() public {
         startHoax(zenWhale1, zenWhale1);
 
+        /// Add more tests
+
+        /// Expect revert for non-existent trade
+        vm.expectRevert(abi.encodePacked(bytes4(keccak256("InvalidAction()"))));
         zen.cancelSwap();
 
-        (, , address counterParty, , ) = zen.getSwap(zenWhale1);
+        (, , , , address counterParty, , ) = zen.getSwap(zenWhale1);
         assert(counterParty == address(0x0));
     }
 
@@ -132,7 +192,7 @@ contract ZenTest is DSTestPlus {
         startHoax(zenWhale1, zenWhale1);
 
         /// Set approval for operating contract
-        azuki.setApprovalForAll(address(zen), true);
+        IAzuki.setApprovalForAll(address(zen), true);
 
         vm.stopPrank();
 
@@ -153,13 +213,13 @@ contract ZenTest is DSTestPlus {
         fakeTokens[0] = 0;
 
         /// Assert address does not own tokens
-        assert(azuki.ownerOf(fakeTokens[0]) != address(1337));
+        assert(IAzuki.ownerOf(fakeTokens[0]) != address(1337));
 
         /// Expect revert for creating a swap with tokens offerer does not own
         vm.expectRevert(
             abi.encodePacked(bytes4(keccak256("DeniedOwnership()")))
         );
-        zen.initiateSwap(fakeTokens, zenWhale1, whale1Tokens, 1 days);
+        zen.createSwap(fakeTokens, 0, zenWhale1, whale1Tokens, 0, 1 days);
 
         vm.stopPrank();
 
@@ -169,6 +229,6 @@ contract ZenTest is DSTestPlus {
         vm.expectRevert(
             abi.encodePacked(bytes4(keccak256("DeniedOwnership()")))
         );
-        zen.initiateSwap(whale1Tokens, address(1337), fakeTokens, 1 days);
+        zen.createSwap(whale1Tokens, 0, address(1337), fakeTokens, 0, 1 days);
     }
 }

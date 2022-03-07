@@ -14,13 +14,13 @@ Zen is the garden inclusive and zero fee swapping mechanism for the Azuki commun
 
 ## Gas Usage
 
-At gas prices `(52 gwei/gas)` at `$2,610/ETH` conversion rate the following are prices on average:
+At gas prices `(61 gwei/gas)` at `$2,524/ETH` conversion rate the following are prices on average:
 
--   **Create a swap:** $10.50 (77444 gas)
--   **Accept a swap:** $4.75 (34998 gas)
--   **Cancel a swap:** $1.43 (10581 gas)
+-   **Create a swap:** $16.91 (109841 gas)
+-   **Accept a swap:** $8.60 (55908 gas)
+-   **Cancel a swap:** $1.75 (11391 gas)
 
-![snapshot](/snapshots/3.png)
+![snapshot](/snapshots/4.png)
 
 ## Blueprint
 
@@ -59,6 +59,18 @@ make build
 ```bash
 make test
 ```
+
+**Deployment & Verification**
+
+Inside the [`scripts/`](./scripts/) directory are a few preconfigured scripts that can be used to deploy and verify contracts.
+
+Scripts take inputs from the cli, using silent mode to hide any sensitive information.
+
+NOTE: These scripts are required to be _executable_ meaning they must be made executable by running `chmod +x ./scripts/*`.
+
+NOTE: For local deployment, make sure to run `yarn` or `npm install` before running the `deploy_local.sh` script. Otherwise, hardhat will error due to missing dependencies.
+
+NOTE: these scripts will prompt you for the contract name and deployed addresses (when verifying). Also, they use the `-i` flag on `forge` to ask for your private key for deployment. This uses silent mode which keeps your private key from being printed to the console (and visible in logs).
 
 ---
 

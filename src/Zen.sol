@@ -2,20 +2,16 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/interfaces/IERC721.sol";
+import "@openzeppelin/interfaces/IERC1155.sol";
+
+error NonexistentTrade();
+error TimeExpired();
+error InvalidAction();
+error DeniedOwnership();
 
 /// @title Zen (Red Bean Swap)
 /// @author The Garden
 contract Zen {
-    /// >>>>>>>>>>>>>>>>>>>>>>>>>  CUSTOM ERRORS   <<<<<<<<<<<<<<<<<<<<<<<<< ///
-
-    error NonexistentTrade();
-
-    error TimeExpired();
-
-    error InvalidAction();
-
-    error DeniedOwnership();
-
     /// >>>>>>>>>>>>>>>>>>>>>>>>>  METADATA   <<<<<<<<<<<<<<<<<<<<<<<<< ///
 
     event SwapCreated(ZenSwap);
@@ -26,9 +22,13 @@ contract Zen {
 
     event SwapCanceled(ZenSwap);
 
-    /// @notice AzukiZen contract on mainnet
-    IERC721 private constant IZen =
+    /// @notice Azuki contract on mainnet
+    IERC721 private constant IAzuki =
         IERC721(0xED5AF388653567Af2F388E6224dC7C4b3241C544);
+
+    /// @notice BOBU contract on mainnet
+    IERC1155 private constant IBobu =
+        IERC1155(0x2079812353E2C9409a788FBF5f383fa62aD85bE8);
 
     /// @dev Packed struct of swap data.
     /// @param offerTokens List of token IDs offered
@@ -37,8 +37,10 @@ contract Zen {
     /// @param createdAt UNIX Timestamp of swap creation.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
     struct ZenSwap {
-        uint256[] offerTokens;
-        uint256[] counterTokens;
+        uint256[] offerTokens721;
+        uint256 offerTokens1155;
+        uint256[] counterTokens721;
+        uint256 counterTokens1155;
         address counterParty;
         uint64 createdAt;
         uint32 allotedTime;
@@ -50,25 +52,38 @@ contract Zen {
     constructor() {}
 
     /// @notice Creates a new swap.
-    /// @param offerTokens Token IDs offered by the offering party (caller).
+    /// @param offerTokens721 ERC721 Token IDs offered by the offering party (caller).
+    /// @param offerTokens1155 ERC1155 quantity of Bobu Token ID #1
     /// @param counterParty Opposing party the swap is initiated with.
+    /// @param counterTokens721 ERC721 Token IDs requested from the counter party.
+    /// @param counterTokens1155 ERC1155 quantity of Bobu Token ID #1 request from the counter party.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
-    function initiateSwap(
-        uint256[] memory offerTokens,
+    function createSwap(
+        uint256[] memory offerTokens721,
+        uint256 offerTokens1155,
         address counterParty,
-        uint256[] memory counterTokens,
+        uint256[] memory counterTokens721,
+        uint256 counterTokens1155,
         uint32 allotedTime
     ) public {
+        if (offerTokens721.length == 0 && counterTokens721.length == 0)
+            revert InvalidAction();
         if (allotedTime == 0) revert InvalidAction();
         if (allotedTime >= 365 days) revert InvalidAction();
-        if (!_verifyOwnership(msg.sender, offerTokens))
+        if (!_verifyOwnership721(msg.sender, offerTokens721))
             revert DeniedOwnership();
-        if (!_verifyOwnership(counterParty, counterTokens))
+        if (!_verifyOwnership721(counterParty, counterTokens721))
+            revert DeniedOwnership();
+        if (!_verifyOwnership1155(msg.sender, offerTokens1155))
+            revert DeniedOwnership();
+        if (!_verifyOwnership1155(counterParty, counterTokens1155))
             revert DeniedOwnership();
 
         ZenSwap memory swap = ZenSwap(
-            offerTokens,
-            counterTokens,
+            offerTokens721,
+            offerTokens1155,
+            counterTokens721,
+            counterTokens1155,
             counterParty,
             uint64(block.timestamp),
             allotedTime
@@ -88,36 +103,75 @@ contract Zen {
         if (block.timestamp > swap.createdAt + swap.allotedTime)
             revert TimeExpired();
 
-        uint256 offererLength = swap.offerTokens.length;
-        uint256 counterLength = swap.counterTokens.length;
-        uint256[] memory offerTokens = swap.offerTokens;
-        uint256[] memory counterTokens = swap.counterTokens;
-
-        for (uint256 i; i < offererLength; ) {
-            IZen.transferFrom(offerer, msg.sender, offerTokens[i]);
-
-            unchecked {
-                i++;
-            }
-        }
-
-        for (uint256 i; i < counterLength; ) {
-            IZen.transferFrom(msg.sender, offerer, counterTokens[i]);
-
-            unchecked {
-                i++;
-            }
-        }
-
         delete activeSwaps[offerer];
+
+        _swapERC721(swap, offerer);
+        _swapERC1155(swap, offerer);
 
         emit SwapAccepted(swap);
     }
 
-    /// @notice Batch verifies that the specified owner is the owner of all tokens.
+    /// @notice Swaps ERC721 contents
+    /// @param swap ZenSwap object containing all swap data
+    /// @param offerer User that created the swap
+    /// @dev `msg.sender` is the user accepting the swap
+    function _swapERC721(ZenSwap memory swap, address offerer) internal {
+        uint256 offererLength721 = swap.offerTokens721.length;
+        uint256 counterLength721 = swap.counterTokens721.length;
+
+        uint256[] memory offerTokens721 = swap.offerTokens721;
+        uint256[] memory counterTokens721 = swap.counterTokens721;
+
+        for (uint256 i; i < offererLength721; ) {
+            IAzuki.transferFrom(offerer, msg.sender, offerTokens721[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+
+        for (uint256 i; i < counterLength721; ) {
+            IAzuki.transferFrom(msg.sender, offerer, counterTokens721[i]);
+
+            unchecked {
+                i++;
+            }
+        }
+    }
+
+    /// @notice Swaps ERC1155 contents
+    /// @param swap ZenSwap object containing all swap data
+    /// @param offerer User that created the swap
+    /// @dev `msg.sender` is the user accepting the swap
+    function _swapERC1155(ZenSwap memory swap, address offerer) internal {
+        uint256 offererQuantity1155 = swap.offerTokens1155;
+        uint256 counterQuantity1155 = swap.counterTokens1155;
+
+        if (offererQuantity1155 != 0) {
+            IBobu.safeTransferFrom(
+                offerer,
+                msg.sender,
+                1,
+                offererQuantity1155,
+                ""
+            );
+        }
+
+        if (counterQuantity1155 != 0) {
+            IBobu.safeTransferFrom(
+                msg.sender,
+                offerer,
+                1,
+                counterQuantity1155,
+                ""
+            );
+        }
+    }
+
+    /// @notice Batch verifies that the specified owner is the owner of all ERC721 tokens.
     /// @param owner Specified owner of tokens.
     /// @param tokenIds List of token IDs.
-    function _verifyOwnership(address owner, uint256[] memory tokenIds)
+    function _verifyOwnership721(address owner, uint256[] memory tokenIds)
         internal
         view
         returns (bool success)
@@ -125,7 +179,7 @@ contract Zen {
         uint256 length = tokenIds.length;
 
         for (uint256 i = 0; i < length; ) {
-            if (IZen.ownerOf(tokenIds[i]) != owner) return false;
+            if (IAzuki.ownerOf(tokenIds[i]) != owner) return false;
 
             unchecked {
                 i++;
@@ -135,13 +189,26 @@ contract Zen {
         success = true;
     }
 
+    /// @notice Batch verifies that the specified owner is the owner of all ERC1155 tokens.
+    /// @param owner Specified owner of tokens.
+    /// @param tokenQuantity Amount of Bobu tokens
+    function _verifyOwnership1155(address owner, uint256 tokenQuantity)
+        internal
+        view
+        returns (bool)
+    {
+        return IBobu.balanceOf(owner, 1) >= tokenQuantity;
+    }
+
     /// @notice Gets the details of an existing swap.
     function getSwap(address offerer)
         public
         view
         returns (
-            uint256[] memory offerTokens,
-            uint256[] memory counterTokens,
+            uint256[] memory offerTokens721,
+            uint256 offerTokens1155,
+            uint256[] memory counterTokens721,
+            uint256 counterTokens1155,
             address counterParty,
             uint64 createdAt,
             uint32 allotedTime
@@ -149,8 +216,10 @@ contract Zen {
     {
         ZenSwap memory swap = activeSwaps[offerer];
 
-        offerTokens = swap.offerTokens;
-        counterTokens = swap.counterTokens;
+        offerTokens721 = swap.offerTokens721;
+        offerTokens1155 = swap.offerTokens1155;
+        counterTokens721 = swap.counterTokens721;
+        counterTokens1155 = swap.counterTokens1155;
         counterParty = swap.counterParty;
         createdAt = swap.createdAt;
         allotedTime = swap.allotedTime;
@@ -159,6 +228,8 @@ contract Zen {
     /// @notice Manually deletes existing swap.
     function cancelSwap() public {
         ZenSwap memory swap = activeSwaps[msg.sender];
+
+        if (swap.counterParty == address(0x0)) revert InvalidAction();
 
         delete swap;
 
