@@ -2,6 +2,8 @@
 
 Introducing Zen, Zen is the garden inclusive and zero fee swapping mechanism for the Azuki community. Have peace of mind whilst finding your forever bean. Built by the community, for the community. _IKZ!_
 
+[Website](https://zenswap.xyz/)
+
 Refer to https://github.com/zkSoju/zen-next for the dApp.
 
 ## Features
