@@ -22,6 +22,8 @@ contract Zen {
 
     event SwapCanceled(ZenSwap);
 
+        event RequesterAdded(ZenSwap);
+
     /// @notice Azuki contract on mainnet
     IERC721 private constant IAzuki =
         IERC721(0xED5AF388653567Af2F388E6224dC7C4b3241C544);
@@ -48,6 +50,12 @@ contract Zen {
 
     /// @notice Maps offering party to their respective active swap
     mapping(address => ZenSwap) public activeSwaps;
+
+    /// @notice Maps user to addresses requesting swap
+    mapping(address => address[]) public incomingRequesters;
+
+    /// @notice Maps user's requester to index within above array
+    mapping(address => mapping(address => uint256)) public indexOfRequester;
 
     constructor() {}
 
@@ -90,6 +98,7 @@ contract Zen {
         );
 
         activeSwaps[msg.sender] = swap;
+        incomingRequesters[counterParty] = incomingRequesters[counterParty].push(msg.sender);
 
         emit SwapCreated(swap);
     }
@@ -108,7 +117,18 @@ contract Zen {
         _swapERC721(swap, offerer);
         _swapERC1155(swap, offerer);
 
+        incomingRequesters[counterParty] = incomingRequesters[counterParty].push(msg.sender);
+        _removeRequester(msg.sender);
+
         emit SwapAccepted(swap);
+    }
+
+    function _removeRequester(address requester) internal {
+        uint256 index = indexOfRequester[msg.sender][requester];
+
+        address[] requesters = incomingRequesters[requester];
+        requesters[index] = requesters[requester.length - 1];
+        requesters.pop();
     }
 
     /// @notice Swaps ERC721 contents
@@ -202,7 +222,7 @@ contract Zen {
 
     /// @notice Gets the details of an existing swap.
     function getSwap(address offerer)
-        public
+        external
         view
         returns (
             uint256[] memory offerTokens721,
