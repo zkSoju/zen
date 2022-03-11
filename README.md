@@ -24,11 +24,11 @@ Refer to https://github.com/zkSoju/zen-next for the dApp.
 
 At gas prices `(61 gwei/gas)` at `$2,524/ETH` conversion rate the following are prices on average:
 
--   **Create a swap:** $16.91 (109841 gas)
--   **Accept a swap:** $8.60 (55908 gas)
--   **Cancel a swap:** $1.75 (11391 gas)
+-   **Create a swap:** ~~$16.91 (109841 gas)~~
+-   **Accept a swap:** ~~$8.60 (55908 gas)~~
+-   **Cancel a swap:** ~~$1.75 (11391 gas)~~
 
-![snapshot](/snapshots/4.png)
+![snapshot](/snapshots/5.png)
 
 ## Blueprint
 

@@ -26,7 +26,7 @@ contract ZenTest is DSTestPlus {
     address bobuWhale1 = 0x103fC5759305e59DBE6C3355d11C35A213A5252C;
 
     function setUp() public {
-        zen = new Zen();
+        zen = new Zen(IAzuki, IBobu);
 
         vm.label(zenWhale1, "Azuki Whale #1");
         vm.label(zenWhale1, "Azuki Whale #2");
@@ -34,31 +34,7 @@ contract ZenTest is DSTestPlus {
     }
 
     function testSingleSwap721() public {
-        /// Initialize arguments for swap
-        uint256[] memory whale1Tokens = new uint256[](1);
-        whale1Tokens[0] = 7782;
-
-        uint256[] memory whale2Tokens = new uint256[](1);
-        whale2Tokens[0] = 8024;
-
-        /// Imitate as offering party
-        startHoax(zenWhale1, zenWhale1);
-
-        uint256 zenWhale1Balance = IAzuki.balanceOf(zenWhale1);
-        uint256 zenWhale2Balance = IAzuki.balanceOf(zenWhale2);
-
-        /// Assert token balance of accounts are greater than 0
-        assert(zenWhale1Balance > 0);
-        assert(zenWhale1Balance > 0);
-
-        /// Assert ownership of tokens
-        assertEq(IAzuki.ownerOf(7782), address(zenWhale1));
-
-        /// Set approval for operating contract
-        IAzuki.setApprovalForAll(address(zen), true);
-
-        /// Initiate swap
-        zen.createSwap(whale1Tokens, 0, zenWhale2, whale2Tokens, 0, 1 days);
+        _createSwap();
 
         vm.stopPrank();
 
@@ -178,13 +154,15 @@ contract ZenTest is DSTestPlus {
         startHoax(zenWhale1, zenWhale1);
 
         /// Add more tests
-
-        /// Expect revert for non-existent trade
-        vm.expectRevert(abi.encodePacked(bytes4(keccak256("InvalidAction()"))));
+        _createSwap();
         zen.cancelSwap();
 
         (, , , , address counterParty, , ) = zen.getSwap(zenWhale1);
         assert(counterParty == address(0x0));
+
+        /// Expect revert for non-existent trade
+        vm.expectRevert(abi.encodePacked(bytes4(keccak256("InvalidAction()"))));
+        zen.cancelSwap();
     }
 
     function testInvalidSwaps() public {
@@ -230,5 +208,44 @@ contract ZenTest is DSTestPlus {
             abi.encodePacked(bytes4(keccak256("DeniedOwnership()")))
         );
         zen.createSwap(whale1Tokens, 0, address(1337), fakeTokens, 0, 1 days);
+    }
+
+    function testRequesters() public {
+        _createSwap();
+
+        address requester = zen.incomingRequesters(zenWhale2, 0);
+
+        emit log_address(requester);
+    }
+
+    function _createSwap() internal {
+        /// Initialize arguments for swap
+        uint256[] memory whale1Tokens = new uint256[](2);
+        whale1Tokens[0] = 7782;
+        whale1Tokens[1] = 9909;
+
+        uint256[] memory whale2Tokens = new uint256[](2);
+        whale2Tokens[0] = 8024;
+        whale2Tokens[1] = 6365;
+
+        /// Imitate as offering party
+        startHoax(zenWhale1, zenWhale1);
+
+        uint256 zenWhale1Balance = IAzuki.balanceOf(zenWhale1);
+        uint256 zenWhale2Balance = IAzuki.balanceOf(zenWhale2);
+
+        /// Assert token balance of accounts are greater than 0
+        assert(zenWhale1Balance > 0);
+        assert(zenWhale1Balance > 0);
+
+        /// Assert ownership of tokens
+        assertEq(IAzuki.ownerOf(7782), address(zenWhale1));
+        assertEq(IAzuki.ownerOf(8024), address(zenWhale2));
+
+        /// Set approval for operating contract
+        IAzuki.setApprovalForAll(address(zen), true);
+
+        /// Initiate swap
+        zen.createSwap(whale1Tokens, 0, zenWhale2, whale2Tokens, 0, 1 days);
     }
 }
