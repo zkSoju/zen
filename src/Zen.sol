@@ -14,23 +14,21 @@ error DeniedOwnership();
 contract Zen {
     /// >>>>>>>>>>>>>>>>>>>>>>>>>  METADATA   <<<<<<<<<<<<<<<<<<<<<<<<< ///
 
-    event SwapCreated(ZenSwap);
+    event SwapCreated(address indexed user, ZenSwap);
 
-    event SwapAccepted(ZenSwap);
+    event SwapAccepted(address indexed user, ZenSwap);
 
-    event SwapUpdated(ZenSwap);
+    event SwapUpdated(address indexed user, ZenSwap);
 
-    event SwapCanceled(ZenSwap);
+    event SwapCanceled(address indexed user, ZenSwap);
 
-        event RequesterAdded(ZenSwap);
+    event RequesterAdded(ZenSwap);
 
     /// @notice Azuki contract on mainnet
-    IERC721 private constant IAzuki =
-        IERC721(0xED5AF388653567Af2F388E6224dC7C4b3241C544);
+    IERC721 private immutable azuki;
 
     /// @notice BOBU contract on mainnet
-    IERC1155 private constant IBobu =
-        IERC1155(0x2079812353E2C9409a788FBF5f383fa62aD85bE8);
+    IERC1155 private immutable bobu;
 
     /// @dev Packed struct of swap data.
     /// @param offerTokens List of token IDs offered
@@ -57,7 +55,10 @@ contract Zen {
     /// @notice Maps user's requester to index within above array
     mapping(address => mapping(address => uint256)) public indexOfRequester;
 
-    constructor() {}
+    constructor(IERC721 _azuki, IERC1155 _bobu) {
+        azuki = _azuki;
+        bobu = _bobu;
+    }
 
     /// @notice Creates a new swap.
     /// @param offerTokens721 ERC721 Token IDs offered by the offering party (caller).
@@ -67,17 +68,18 @@ contract Zen {
     /// @param counterTokens1155 ERC1155 quantity of Bobu Token ID #1 request from the counter party.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
     function createSwap(
-        uint256[] memory offerTokens721,
+        uint256[] calldata offerTokens721,
         uint256 offerTokens1155,
         address counterParty,
-        uint256[] memory counterTokens721,
+        uint256[] calldata counterTokens721,
         uint256 counterTokens1155,
         uint32 allotedTime
-    ) public {
+    ) external {
         if (offerTokens721.length == 0 && counterTokens721.length == 0)
             revert InvalidAction();
         if (allotedTime == 0) revert InvalidAction();
         if (allotedTime >= 365 days) revert InvalidAction();
+        if (counterParty == address(0)) revert InvalidAction();
         if (!_verifyOwnership721(msg.sender, offerTokens721))
             revert DeniedOwnership();
         if (!_verifyOwnership721(counterParty, counterTokens721))
@@ -98,14 +100,18 @@ contract Zen {
         );
 
         activeSwaps[msg.sender] = swap;
-        incomingRequesters[counterParty] = incomingRequesters[counterParty].push(msg.sender);
 
-        emit SwapCreated(swap);
+        /// Check if swap being pair already exists
+        if (activeSwaps[msg.sender].counterParty != address(0)) {
+            incomingRequesters[counterParty].push(msg.sender);
+        }
+
+        emit SwapCreated(msg.sender, swap);
     }
 
     /// @notice Accepts an existing swap.
     /// @param offerer Address of the offering party that initiated the swap
-    function acceptSwap(address offerer) public {
+    function acceptSwap(address offerer) external {
         ZenSwap memory swap = activeSwaps[offerer];
 
         if (swap.counterParty != msg.sender) revert NonexistentTrade();
@@ -117,18 +123,19 @@ contract Zen {
         _swapERC721(swap, offerer);
         _swapERC1155(swap, offerer);
 
-        incomingRequesters[counterParty] = incomingRequesters[counterParty].push(msg.sender);
         _removeRequester(msg.sender);
 
-        emit SwapAccepted(swap);
+        emit SwapAccepted(msg.sender, swap);
     }
 
     function _removeRequester(address requester) internal {
         uint256 index = indexOfRequester[msg.sender][requester];
 
-        address[] requesters = incomingRequesters[requester];
-        requesters[index] = requesters[requester.length - 1];
-        requesters.pop();
+        uint256 length = incomingRequesters[requester].length;
+        incomingRequesters[requester][index] = incomingRequesters[requester][
+            length - 1
+        ];
+        incomingRequesters[requester].pop();
     }
 
     /// @notice Swaps ERC721 contents
@@ -143,7 +150,7 @@ contract Zen {
         uint256[] memory counterTokens721 = swap.counterTokens721;
 
         for (uint256 i; i < offererLength721; ) {
-            IAzuki.transferFrom(offerer, msg.sender, offerTokens721[i]);
+            azuki.transferFrom(offerer, msg.sender, offerTokens721[i]);
 
             unchecked {
                 i++;
@@ -151,7 +158,7 @@ contract Zen {
         }
 
         for (uint256 i; i < counterLength721; ) {
-            IAzuki.transferFrom(msg.sender, offerer, counterTokens721[i]);
+            azuki.transferFrom(msg.sender, offerer, counterTokens721[i]);
 
             unchecked {
                 i++;
@@ -168,7 +175,7 @@ contract Zen {
         uint256 counterQuantity1155 = swap.counterTokens1155;
 
         if (offererQuantity1155 != 0) {
-            IBobu.safeTransferFrom(
+            bobu.safeTransferFrom(
                 offerer,
                 msg.sender,
                 1,
@@ -178,7 +185,7 @@ contract Zen {
         }
 
         if (counterQuantity1155 != 0) {
-            IBobu.safeTransferFrom(
+            bobu.safeTransferFrom(
                 msg.sender,
                 offerer,
                 1,
@@ -194,19 +201,19 @@ contract Zen {
     function _verifyOwnership721(address owner, uint256[] memory tokenIds)
         internal
         view
-        returns (bool success)
+        returns (bool)
     {
         uint256 length = tokenIds.length;
 
         for (uint256 i = 0; i < length; ) {
-            if (IAzuki.ownerOf(tokenIds[i]) != owner) return false;
+            if (azuki.ownerOf(tokenIds[i]) != owner) return false;
 
             unchecked {
                 i++;
             }
         }
 
-        success = true;
+        return true;
     }
 
     /// @notice Batch verifies that the specified owner is the owner of all ERC1155 tokens.
@@ -217,7 +224,7 @@ contract Zen {
         view
         returns (bool)
     {
-        return IBobu.balanceOf(owner, 1) >= tokenQuantity;
+        return bobu.balanceOf(owner, 1) >= tokenQuantity;
     }
 
     /// @notice Gets the details of an existing swap.
@@ -245,14 +252,26 @@ contract Zen {
         allotedTime = swap.allotedTime;
     }
 
+    /// @notice Extends existing swap alloted time
+    /// @param allotedTime Amount of time to increase swap alloted time for
+    function extendAllotedTime(uint32 allotedTime) external {
+        ZenSwap storage swap = activeSwaps[msg.sender];
+
+        if (swap.counterParty == address(0)) revert InvalidAction();
+
+        swap.allotedTime = swap.allotedTime + allotedTime;
+
+        emit SwapUpdated(msg.sender, swap);
+    }
+
     /// @notice Manually deletes existing swap.
-    function cancelSwap() public {
+    function cancelSwap() external {
         ZenSwap memory swap = activeSwaps[msg.sender];
 
-        if (swap.counterParty == address(0x0)) revert InvalidAction();
+        if (swap.counterParty == address(0)) revert InvalidAction();
 
-        delete swap;
+        delete activeSwaps[msg.sender];
 
-        emit SwapCanceled(swap);
+        emit SwapCanceled(msg.sender, activeSwaps[msg.sender]);
     }
 }

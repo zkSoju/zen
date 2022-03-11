@@ -27,7 +27,7 @@ dappbuild :; dapp build
 scripts :; chmod +x ./scripts/*
 
 # Test
-test :; forge clean && forge test -f ${ETH_RPC_URL} --optimize --optimize-runs 1000000 -v # --ffi # enable if you need the `ffi` cheat code on HEVM
+test :; forge clean && forge test -f ${ETH_RPC_URL} --optimize --optimize-runs 1000000 -vvvv --gas-report # --ffi # enable if you need the `ffi` cheat code on HEVM
 
 # Lints
 lint :; prettier --write src/**/*.sol && prettier --write src/*.sol
