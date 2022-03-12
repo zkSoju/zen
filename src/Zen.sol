@@ -84,10 +84,14 @@ contract Zen {
             revert DeniedOwnership();
         if (!_verifyOwnership721(counterParty, counterTokens721))
             revert DeniedOwnership();
-        if (!_verifyOwnership1155(msg.sender, offerTokens1155))
-            revert DeniedOwnership();
-        if (!_verifyOwnership1155(counterParty, counterTokens1155))
-            revert DeniedOwnership();
+        if (
+            offerTokens1155 != 0 &&
+            !_verifyOwnership1155(msg.sender, offerTokens1155)
+        ) revert DeniedOwnership();
+        if (
+            counterTokens1155 != 0 &&
+            !_verifyOwnership1155(counterParty, counterTokens1155)
+        ) revert DeniedOwnership();
 
         ZenSwap memory swap = ZenSwap(
             offerTokens721,
