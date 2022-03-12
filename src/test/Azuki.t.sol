@@ -3,13 +3,13 @@ pragma solidity 0.8.11;
 
 import {DSTestPlus} from "./utils/DSTestPlus.sol";
 
-import {Azuki} from "../mocks/Azuki.sol";
+import {Azuki} from "../Azuki.sol";
 
 import "@openzeppelin/interfaces/IERC721.sol";
 
 import "@openzeppelin/interfaces/IERC1155.sol";
 
-contract ZenTest is DSTestPlus {
+contract AzukiTest is DSTestPlus {
     Azuki azuki;
 
     function setUp() public {
@@ -20,5 +20,7 @@ contract ZenTest is DSTestPlus {
         startHoax(address(1337), address(1337));
 
         azuki.mint();
+
+        emit log_string(azuki.tokenURI(0));
     }
 }

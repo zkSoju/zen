@@ -4,13 +4,16 @@ pragma solidity 0.8.11;
 import {DSTestPlus} from "./utils/DSTestPlus.sol";
 
 import {Zen} from "../Zen.sol";
+import {Azuki} from "../Azuki.sol";
 
 import "@openzeppelin/interfaces/IERC721.sol";
 
 import "@openzeppelin/interfaces/IERC1155.sol";
 
 contract ZenTest is DSTestPlus {
+    Azuki azuki;
     Zen zen;
+    Zen mockZen;
 
     /// @notice Azuki contract on mainnet
     IERC721 private constant IAzuki =
@@ -26,11 +29,55 @@ contract ZenTest is DSTestPlus {
     address bobuWhale1 = 0x103fC5759305e59DBE6C3355d11C35A213A5252C;
 
     function setUp() public {
+        azuki = new Azuki();
         zen = new Zen(IAzuki, IBobu);
+
+        // using mock contracts
+        mockZen = new Zen(azuki, IBobu);
 
         vm.label(zenWhale1, "Azuki Whale #1");
         vm.label(zenWhale1, "Azuki Whale #2");
         vm.label(bobuWhale1, "Bobu Whale #1");
+    }
+
+    function testMockSwap() public {
+        /// Imitate as offering party
+        hoax(zenWhale1, zenWhale1);
+
+        azuki.mint();
+
+        /// Imitate as counter party
+        hoax(zenWhale2, zenWhale2);
+
+        azuki.mint();
+
+        uint256 zenWhale1Balance = azuki.balanceOf(zenWhale1);
+        uint256 zenWhale2Balance = azuki.balanceOf(zenWhale2);
+
+        /// Assert token balance of accounts are greater than 0
+        assert(zenWhale1Balance > 0);
+        assert(zenWhale1Balance > 0);
+
+        /// Assert ownership of tokens
+        assertEq(azuki.ownerOf(0), address(zenWhale1));
+        assertEq(azuki.ownerOf(1), address(zenWhale2));
+
+        /// Initialize arguments for swap
+        uint256[] memory whale1Tokens = new uint256[](1);
+        whale1Tokens[0] = 0;
+
+        uint256[] memory whale2Tokens = new uint256[](1);
+        whale2Tokens[0] = 1;
+
+        startHoax(zenWhale1, zenWhale1);
+
+        /// Set approval for operating contract
+        azuki.setApprovalForAll(address(zen), true);
+
+        /// Initiate swap
+        mockZen.createSwap(whale1Tokens, 0, zenWhale2, whale2Tokens, 0, 1 days);
+
+        vm.stopPrank();
     }
 
     function testSingleSwap721() public {
