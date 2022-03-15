@@ -5,7 +5,7 @@ pragma solidity 0.8.11;
 import "@openzeppelin/token/ERC721/ERC721.sol";
 import "@openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract Azuki is ERC721, ERC721Enumerable {
+contract MockAzuki is ERC721Enumerable {
     string private _baseTokenURI =
         "https://ikzttp.mypinata.cloud/ipfs/QmQFkLSQysj94s5GvTHPyzTxrawwtjgiiYS2TBLgrvw8CW/";
 

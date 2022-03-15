@@ -4,14 +4,14 @@ pragma solidity 0.8.11;
 import {DSTestPlus} from "./utils/DSTestPlus.sol";
 
 import {Zen} from "../Zen.sol";
-import {Azuki} from "../Azuki.sol";
+import {MockAzuki} from "./utils/mocks/MockAzuki.sol";
+import {MockBobu} from "./utils/mocks/MockBobu.sol";
 
 import "@openzeppelin/interfaces/IERC721.sol";
-
 import "@openzeppelin/interfaces/IERC1155.sol";
 
 contract ZenTest is DSTestPlus {
-    Azuki azuki;
+    MockAzuki azuki;
     Zen zen;
     Zen mockZen;
 
@@ -29,7 +29,7 @@ contract ZenTest is DSTestPlus {
     address bobuWhale1 = 0x103fC5759305e59DBE6C3355d11C35A213A5252C;
 
     function setUp() public {
-        azuki = new Azuki();
+        azuki = new MockAzuki();
         zen = new Zen(IAzuki, IBobu);
 
         // using mock contracts
