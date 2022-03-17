@@ -15,8 +15,8 @@ Refer to https://github.com/zkSoju/zen-next for the dApp.
 -   [ ] Testing suite
     -   [x] Isolated `createSwap` and `acceptSwap` tests
     -   [x] Composite ERC721 + ERC1155 tests
-    -   [ ] Isolated ERC721 Tests
-    -   [ ] Isolated ERC1155 Tests (shouldn't be able to swap?)
+    -   [x] Isolated ERC721 Tests
+    -   [x] Isolated ERC1155 Tests (shouldn't be able to swap?)
     -   [ ] Test invalid swaps and cancelations
     -   [ ] Test ownership and swap validation
 
@@ -28,7 +28,7 @@ At gas prices `(61 gwei/gas)` at `$2,524/ETH` conversion rate the following are 
 -   **Accept a swap:** ~~$8.60 (55908 gas)~~
 -   **Cancel a swap:** ~~$1.75 (11391 gas)~~
 
-![snapshot](/snapshots/5.png)
+![snapshot](/snapshots/6.png)
 
 ## Blueprint
 

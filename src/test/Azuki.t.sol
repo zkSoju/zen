@@ -3,17 +3,17 @@ pragma solidity 0.8.11;
 
 import {DSTestPlus} from "./utils/DSTestPlus.sol";
 
-import {Azuki} from "../Azuki.sol";
+import {MockAzuki} from "./utils/mocks/MockAzuki.sol";
 
 import "@openzeppelin/interfaces/IERC721.sol";
 
 import "@openzeppelin/interfaces/IERC1155.sol";
 
 contract AzukiTest is DSTestPlus {
-    Azuki azuki;
+    MockAzuki azuki;
 
     function setUp() public {
-        azuki = new Azuki();
+        azuki = new MockAzuki();
     }
 
     function testMint() public {

@@ -22,5 +22,8 @@
         "test": "make test",
         "snapshot": "make snapshot",
         "lint": "make lint"
+    },
+    "dependencies": {
+        "typedoc": "^0.22.13"
     }
 }
