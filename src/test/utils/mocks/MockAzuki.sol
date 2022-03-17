@@ -45,8 +45,12 @@ contract MockAzuki is ERC721Enumerable {
 
         for (uint256 i; i < length; ) {
             tokensOfOwner[i] = tokenOfOwnerByIndex(_owner, i);
+
+            unchecked {
+                ++i;
+            }
         }
 
-        return (tokensOfOwner);
+        return tokensOfOwner;
     }
 }
