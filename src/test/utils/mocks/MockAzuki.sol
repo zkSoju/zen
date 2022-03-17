@@ -3,9 +3,8 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/token/ERC721/ERC721.sol";
-import "@openzeppelin/token/ERC721/extensions/ERC721Enumerable.sol";
 
-contract MockAzuki is ERC721Enumerable {
+contract MockAzuki is ERC721 {
     string private _baseTokenURI =
         "https://ikzttp.mypinata.cloud/ipfs/QmQFkLSQysj94s5GvTHPyzTxrawwtjgiiYS2TBLgrvw8CW/";
 
@@ -33,24 +32,5 @@ contract MockAzuki is ERC721Enumerable {
     function mint() external {
         _safeMint(msg.sender, currentSupply);
         currentSupply += 1;
-    }
-
-    function getTokenIds(address _owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        uint256 length = balanceOf(_owner);
-        uint256[] memory tokensOfOwner = new uint256[](length);
-
-        for (uint256 i; i < length; ) {
-            tokensOfOwner[i] = tokenOfOwnerByIndex(_owner, i);
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return tokensOfOwner;
     }
 }

@@ -15,16 +15,6 @@ error NotAuthorized();
 contract Zen {
     /// >>>>>>>>>>>>>>>>>>>>>>>>>  METADATA   <<<<<<<<<<<<<<<<<<<<<<<<< ///
 
-    event SwapCreated(address indexed user, ZenSwap);
-
-    event SwapAccepted(address indexed user, ZenSwap);
-
-    event SwapUpdated(address indexed user, ZenSwap);
-
-    event SwapCanceled(address indexed user, ZenSwap);
-
-    event RequesterAdded(ZenSwap);
-
     /// @notice Azuki contract on mainnet
     IERC721 private immutable azuki;
 
@@ -42,28 +32,31 @@ contract Zen {
     /// @dev Packed struct of swap data.
     /// @param offerTokens List of token IDs offered
     /// @param offerTokens List of token IDs requested in exchange
-    /// @param requestFrom Opposing party the swap is initiated with.
+    /// @param to Opposing party the swap is initiated with.
     /// @param createdAt UNIX Timestamp of swap creation.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
-    struct ZenSwap {
+    struct OutgoingSwap {
         uint256 id;
         uint256[] offerTokens721;
         uint256 offerTokens1155;
         uint256[] requestTokens721;
         uint256 requestTokens1155;
-        address requestFrom;
+        address to;
         uint64 createdAt;
         uint24 allotedTime;
         swapStatus status;
     }
 
-    // struct Token {
-    //     address contractAddress;
-    //     uint256[] tokenId;
-    // }
+    struct IncomingSwap {
+        uint256 id;
+        address from;
+    }
 
     /// @notice Maps user to open swaps
-    mapping(address => ZenSwap[]) public swaps;
+    mapping(address => OutgoingSwap[]) public outgoingSwaps;
+
+    /// @notice Maps user address to incoming swaps
+    mapping(address => IncomingSwap[]) public incomingSwaps;
 
     /// @notice Maps swap IDs to index of swap in userSwap
     mapping(uint256 => uint256) public getSwapIndex;
@@ -76,14 +69,14 @@ contract Zen {
     /// @notice Creates a new swap.
     /// @param offerTokens721 ERC721 Token IDs offered by the offering party (caller).
     /// @param offerTokens1155 ERC1155 quantity of Bobu Token ID #1
-    /// @param requestFrom Opposing party the swap is initiated with.
+    /// @param to Opposing party the swap is initiated with.
     /// @param requestTokens721 ERC721 Token IDs requested from the counter party.
     /// @param requestTokens1155 ERC1155 quantity of Bobu Token ID #1 request from the counter party.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
     function createSwap(
         uint256[] calldata offerTokens721,
         uint256 offerTokens1155,
-        address requestFrom,
+        address to,
         uint256[] calldata requestTokens721,
         uint256 requestTokens1155,
         uint24 allotedTime
@@ -92,34 +85,40 @@ contract Zen {
             revert InvalidAction();
         if (allotedTime == 0) revert InvalidAction();
         if (allotedTime >= 365 days) revert InvalidAction();
-        if (requestFrom == address(0)) revert InvalidAction();
+        if (to == address(0)) revert InvalidAction();
         if (!_verifyOwnership721(msg.sender, offerTokens721))
             revert NotAuthorized();
-        if (!_verifyOwnership721(requestFrom, requestTokens721))
-            revert NotAuthorized();
+        if (!_verifyOwnership721(to, requestTokens721)) revert NotAuthorized();
         if (
             offerTokens1155 != 0 &&
             !_verifyOwnership1155(msg.sender, offerTokens1155)
         ) revert NotAuthorized();
         if (
             requestTokens1155 != 0 &&
-            !_verifyOwnership1155(requestFrom, requestTokens1155)
+            !_verifyOwnership1155(to, requestTokens1155)
         ) revert NotAuthorized();
 
-        ZenSwap memory swap = ZenSwap(
+        OutgoingSwap memory outgoingSwap = OutgoingSwap(
             currentSwapId,
             offerTokens721,
             offerTokens1155,
             requestTokens721,
             requestTokens1155,
-            requestFrom,
+            to,
             uint64(block.timestamp),
             allotedTime,
             swapStatus.ACTIVE
         );
 
-        getSwapIndex[currentSwapId] = swaps[msg.sender].length;
-        swaps[msg.sender].push(swap);
+        getSwapIndex[currentSwapId] = outgoingSwaps[msg.sender].length;
+        outgoingSwaps[msg.sender].push(outgoingSwap);
+
+        IncomingSwap memory incomingSwap = IncomingSwap(
+            currentSwapId,
+            msg.sender
+        );
+
+        incomingSwaps[to].push(incomingSwap);
 
         currentSwapId++;
     }
@@ -129,15 +128,15 @@ contract Zen {
     /// @param id ID of the existing swap
     function acceptSwap(uint256 id, address offerer) external {
         uint256 swapIndex = getSwapIndex[id];
-        ZenSwap memory swap = swaps[offerer][swapIndex];
+        OutgoingSwap memory swap = outgoingSwaps[offerer][swapIndex];
 
         if (swap.status == swapStatus.INACTIVE) revert InactiveSwap();
         if (swap.status == swapStatus.COMPLETE) revert AlreadyCompleted();
-        if (swap.requestFrom != msg.sender) revert InvalidReceipient();
+        if (swap.to != msg.sender) revert InvalidReceipient();
         if (block.timestamp > swap.createdAt + swap.allotedTime)
             revert InactiveSwap();
 
-        swaps[offerer][swapIndex].status = swapStatus.COMPLETE;
+        outgoingSwaps[offerer][swapIndex].status = swapStatus.COMPLETE;
         _swapERC721(swap, offerer);
         if (!(swap.offerTokens1155 == 0 || swap.requestTokens1155 == 0)) {
             _swapERC1155(swap, offerer);
@@ -148,7 +147,7 @@ contract Zen {
     /// @param swap ZenSwap object containing all swap data
     /// @param offerer User that created the swap
     /// @dev `msg.sender` is the user accepting the swap
-    function _swapERC721(ZenSwap memory swap, address offerer) internal {
+    function _swapERC721(OutgoingSwap memory swap, address offerer) internal {
         uint256 offererLength721 = swap.offerTokens721.length;
         uint256 requestLength721 = swap.requestTokens721.length;
 
@@ -176,7 +175,7 @@ contract Zen {
     /// @param swap ZenSwap object containing all swap data
     /// @param offerer User that created the swap
     /// @dev `msg.sender` is the user accepting the swap
-    function _swapERC1155(ZenSwap memory swap, address offerer) internal {
+    function _swapERC1155(OutgoingSwap memory swap, address offerer) internal {
         uint256 offererQuantity1155 = swap.offerTokens1155;
         uint256 requestQuantity1155 = swap.requestTokens1155;
 
@@ -237,15 +236,46 @@ contract Zen {
     function getSwap(uint256 id, address offerer)
         external
         view
-        returns (ZenSwap memory)
+        returns (OutgoingSwap memory)
     {
-        return swaps[offerer][getSwapIndex[id]];
+        return outgoingSwaps[offerer][getSwapIndex[id]];
+    }
+
+    /// @notice Gets all details of existing swaps.
+    /// @param user User to fetch outgoing swaps for
+    function getAllOutgoingSwaps(address user)
+        external
+        view
+        returns (OutgoingSwap[] memory)
+    {
+        return outgoingSwaps[user];
+    }
+
+    /// @notice Gets all details of existing swaps.
+    /// @param user User to fetch incoming swaps for
+    function getAllIncomingSwaps(address user)
+        external
+        view
+        returns (OutgoingSwap[] memory)
+    {
+        uint256 length = incomingSwaps[user].length;
+        OutgoingSwap[] memory swaps = new OutgoingSwap[](length);
+
+        for (uint256 i; i < length; ) {
+            IncomingSwap memory swap = incomingSwaps[user][i];
+            swaps[i] = outgoingSwaps[swap.from][getSwapIndex[swap.id]];
+            unchecked {
+                ++i;
+            }
+        }
+
+        return swaps;
     }
 
     /// @notice Extends existing swap alloted time
     /// @param allotedTime Amount of time to increase swap alloted time for
     function extendAllotedTime(uint256 id, uint24 allotedTime) external {
-        ZenSwap storage swap = swaps[msg.sender][getSwapIndex[id]];
+        OutgoingSwap storage swap = outgoingSwaps[msg.sender][getSwapIndex[id]];
 
         if (swap.status == swapStatus.INACTIVE) revert InvalidAction();
 
@@ -254,7 +284,7 @@ contract Zen {
 
     /// @notice Manually deletes existing swap.
     function cancelSwap(uint256 id) external {
-        ZenSwap storage swap = swaps[msg.sender][getSwapIndex[id]];
+        OutgoingSwap storage swap = outgoingSwaps[msg.sender][getSwapIndex[id]];
 
         if (swap.status == swapStatus.INACTIVE) revert InvalidAction();
 
