@@ -196,11 +196,42 @@ contract Zen {
         for (uint256 i; i < requestTokens.length; ) {
             uint256 offerTokenLength = requestTokens[i].tokenIds.length;
             for (uint256 j; j < offerTokenLength; ) {
-                IERC721(requestTokens[i].contractAddress).transferFrom(
-                    to,
-                    msg.sender,
-                    requestTokens[i].tokenIds[j]
-                );
+                if (
+                    IERC165(requestTokens[i].contractAddress).supportsInterface(
+                        0x80ac58cd
+                    )
+                ) {
+                    IERC721(requestTokens[i].contractAddress).transferFrom(
+                        to,
+                        msg.sender,
+                        requestTokens[i].tokenIds[j]
+                    );
+                } else if (
+                    IERC165(requestTokens[i].contractAddress).supportsInterface(
+                        0xd9b67a26
+                    )
+                ) {
+                    IERC1155(requestTokens[i].contractAddress).safeTransferFrom(
+                            to,
+                            msg.sender,
+                            requestTokens[i].tokenIds[j],
+                            requestTokens[i].quantities[j],
+                            ""
+                        );
+                } else if (
+                    IERC165(offerTokens[i].contractAddress).supportsInterface(
+                        0x36372b07
+                    )
+                ) {
+                    IERC721(offerTokens[i].contractAddress).transferFrom(
+                        to,
+                        msg.sender,
+                        requestTokens[i].quantities[0]
+                    );
+                } else {
+                    revert NoncompliantTokens();
+                }
+
                 unchecked {
                     ++j;
                 }
