@@ -2,6 +2,7 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/interfaces/IERC165.sol";
+import "@openzeppelin/interfaces/IERC20.sol";
 import "@openzeppelin/interfaces/IERC721.sol";
 import "@openzeppelin/interfaces/IERC1155.sol";
 
@@ -27,8 +28,8 @@ contract Zen {
 
     struct Token {
         address contractAddress;
-        uint256 tokenIds;
-        uint256 quantity;
+        uint256[] tokenIds;
+        uint256[] quantities;
     }
 
     /// @notice The packed struct of swap data.
@@ -53,10 +54,6 @@ contract Zen {
     /// @notice Maps user to outgoing Swaps.
     mapping(address => Swap[]) public getSwaps;
 
-    /// @notice Maps user address to incoming data.
-    /// @dev Data is used to map back to find incoming swap.
-    mapping(address => IncomingData[]) public getIncomingData;
-
     /// @notice Maps Swap id to array of Tokens offered.
     mapping(uint256 => Token[]) public getOfferTokens;
 
@@ -74,8 +71,8 @@ contract Zen {
     /// @param to Opposing party the swap is initiated with.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
     function createSwap(
-        Token[] memory offerTokens,
-        Token[] memory requestTokens,
+        Token[] calldata offerTokens,
+        Token[] calldata requestTokens,
         address to,
         uint256 allotedTime
     ) external {
@@ -90,19 +87,19 @@ contract Zen {
         uint256 offerLength = offerTokens.length;
         uint256 requestLength = requestTokens.length;
 
-        for (uint256 i = 0; i < offerLength; ) {
+        for (uint256 i; i < offerLength; ) {
             getOfferTokens[_currentSwapId].push(offerTokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
 
-        for (uint256 i = 0; i < requestLength; ) {
+        for (uint256 i; i < requestLength; ) {
             getRequestTokens[_currentSwapId].push(requestTokens[i]);
 
             unchecked {
-                i++;
+                ++i;
             }
         }
 
@@ -117,15 +114,12 @@ contract Zen {
         getSwapIndex[_currentSwapId] = getSwaps[msg.sender].length;
         getSwaps[msg.sender].push(newSwap);
 
-        IncomingData memory data = IncomingData(_currentSwapId, msg.sender);
-        getIncomingData[to].push(data);
-
         _currentSwapId++;
     }
 
     /// @notice Accepts an existing swap.
-    /// @param offerer Address of the offering party that initiated the swap
-    /// @param id ID of the existing swap
+    /// @param id The id of the swap to accept.
+    /// @param offerer The address of the offering party that initiated the swap
     function acceptSwap(uint256 id, address offerer) external {
         uint256 swapIndex = getSwapIndex[id];
         Swap memory swap = getSwaps[offerer][swapIndex];
@@ -138,7 +132,84 @@ contract Zen {
 
         getSwaps[offerer][swapIndex].status = SwapStatus.COMPLETE;
 
-        // _swap function
+        _swapTokens(
+            getOfferTokens[swap.id],
+            getRequestTokens[swap.id],
+            offerer
+        );
+    }
+
+    function _swapTokens(
+        Token[] memory offerTokens,
+        Token[] memory requestTokens,
+        address to
+    ) internal {
+        for (uint256 i; i < offerTokens.length; ) {
+            uint256 offerTokenLength = offerTokens[i].tokenIds.length;
+            for (uint256 j; j < offerTokenLength; ) {
+                if (
+                    IERC165(offerTokens[i].contractAddress).supportsInterface(
+                        0x80ac58cd
+                    )
+                ) {
+                    IERC721(offerTokens[i].contractAddress).transferFrom(
+                        msg.sender,
+                        to,
+                        offerTokens[i].tokenIds[j]
+                    );
+                } else if (
+                    IERC165(offerTokens[i].contractAddress).supportsInterface(
+                        0xd9b67a26
+                    )
+                ) {
+                    IERC1155(offerTokens[i].contractAddress).safeTransferFrom(
+                        msg.sender,
+                        to,
+                        offerTokens[i].tokenIds[j],
+                        offerTokens[i].quantities[j],
+                        ""
+                    );
+                } else if (
+                    IERC165(offerTokens[i].contractAddress).supportsInterface(
+                        0x36372b07
+                    )
+                ) {
+                    IERC721(offerTokens[i].contractAddress).transferFrom(
+                        msg.sender,
+                        to,
+                        offerTokens[i].quantities[0]
+                    );
+                } else {
+                    revert NoncompliantTokens();
+                }
+
+                unchecked {
+                    ++j;
+                }
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        for (uint256 i; i < requestTokens.length; ) {
+            uint256 offerTokenLength = requestTokens[i].tokenIds.length;
+            for (uint256 j; j < offerTokenLength; ) {
+                IERC721(requestTokens[i].contractAddress).transferFrom(
+                    to,
+                    msg.sender,
+                    requestTokens[i].tokenIds[j]
+                );
+                unchecked {
+                    ++j;
+                }
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     function _checkCompliance(Token[] memory offer, Token[] memory request)
@@ -191,21 +262,21 @@ contract Zen {
 
     /// @notice Gets all details of existing swaps.
     /// @param user The user to get incoming swaps for.
-    function getSwapsIncoming(address user)
-        external
-        view
-        returns (Swap[] memory)
-    {
-        uint256 length = getIncomingData[user].length;
-        Swap[] memory swaps = new Swap[](length);
+    // function getSwapsIncoming(address user)
+    //     external
+    //     view
+    //     returns (Swap[] memory)
+    // {
+    //     uint256 length = getIncomingData[user].length;
+    //     Swap[] memory swaps = new Swap[](length);
 
-        for (uint256 i; i < length; i++) {
-            IncomingData memory data = getIncomingData[user][i];
-            swaps[i] = getSwaps[data.from][getSwapIndex[data.id]];
-        }
+    //     for (uint256 i; i < length; i++) {
+    //         IncomingData memory data = getIncomingData[user][i];
+    //         swaps[i] = getSwaps[data.from][getSwapIndex[data.id]];
+    //     }
 
-        return swaps;
-    }
+    //     return swaps;
+    // }
 
     /// @notice Extends existing swap alloted time
     /// @param allotedTime Amount of time to increase swap alloted time for
