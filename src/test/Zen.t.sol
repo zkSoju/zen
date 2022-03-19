@@ -29,7 +29,7 @@ contract ZenTest is DSTestPlus {
 
         Zen.Swap memory swap = zen.getSwapSingle(0, address(0xBEEF));
 
-        assert(swap.to == address(1337));
+        assert(swap.recipient == address(1337));
 
         zen.acceptSwap(0, address(0xBEEF));
 
@@ -51,7 +51,7 @@ contract ZenTest is DSTestPlus {
 
         Zen.Swap memory swap = zen.getSwapSingle(0, address(0xBEEF));
 
-        assert(swap.to == address(1337));
+        assert(swap.recipient == address(1337));
 
         zen.acceptSwap(0, address(0xBEEF));
 

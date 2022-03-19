@@ -6,19 +6,64 @@ import "@openzeppelin/interfaces/IERC20.sol";
 import "@openzeppelin/interfaces/IERC721.sol";
 import "@openzeppelin/interfaces/IERC1155.sol";
 
-error InactiveSwap();
-error InvalidInput();
-error InvalidReceipient();
-error AlreadyCompleted();
-error NotAuthorized();
-error NoncompliantTokens();
-
-/// @title Zen (Red Bean Swap)
+/// @title Zen
 /// @author The Garden
 contract Zen {
-    /// >>>>>>>>>>>>>>>>>>>>>>>>>  METADATA   <<<<<<<<<<<<<<<<<<<<<<<<< ///
+    /// -----------------------------------------------------------------------
+    /// Errors
+    /// -----------------------------------------------------------------------
 
-    uint256 private _currentSwapId;
+    error InactiveSwap();
+    error InvalidInput();
+    error InvalidReceipient();
+    error AlreadyCompleted();
+    error NotAuthorized();
+    error NoncompliantTokens();
+
+    /// -----------------------------------------------------------------------
+    /// Events
+    /// -----------------------------------------------------------------------
+
+    event SwapCreated(
+        uint256 indexed swapId,
+        address indexed sender,
+        address indexed recipient
+    );
+
+    event SwapAccepted(
+        uint256 indexed swapId,
+        address indexed sender,
+        address indexed recipient
+    );
+
+    event SwapCancelled(
+        uint256 indexed swapId,
+        address indexed sender,
+        address indexed recipient
+    );
+
+    /// -----------------------------------------------------------------------
+    /// Structs
+    /// -----------------------------------------------------------------------
+
+    struct Token {
+        address contractAddress;
+        uint256[] tokenIds;
+        uint256[] tokenQuantities;
+    }
+
+    /// @param id The id of the swap
+    /// @param recipient The opposing party the swap is interacting with.
+    /// @param createdAt The timestamp of swap creation.
+    /// @param allotedTime The time allocated for the swap.
+    /// @param status The status that determines the state of the swap.
+    struct Swap {
+        uint256 id;
+        address recipient;
+        uint64 createdAt;
+        uint24 allotedTime;
+        SwapStatus status;
+    }
 
     enum SwapStatus {
         ACTIVE,
@@ -26,30 +71,11 @@ contract Zen {
         INACTIVE
     }
 
-    struct Token {
-        address contractAddress;
-        uint256[] tokenIds;
-        uint256[] quantities;
-    }
+    /// -----------------------------------------------------------------------
+    /// Storage
+    /// -----------------------------------------------------------------------
 
-    /// @notice The packed struct of swap data.
-    /// @param to The opposing party the swap is interacting with.
-    /// @param createdAt The timestamp of swap creation.
-    /// @param allotedTime The time allocated for the swap.
-    /// @param status The status that determines the state of the swap.
-    /// @dev The status of the swap becomes inactive when time expires.
-    struct Swap {
-        uint256 id;
-        address to;
-        uint64 createdAt;
-        uint24 allotedTime;
-        SwapStatus status;
-    }
-
-    struct IncomingData {
-        uint256 id;
-        address from;
-    }
+    uint256 private _currentSwapId;
 
     /// @notice Maps user to outgoing Swaps.
     mapping(address => Swap[]) public getSwaps;
@@ -68,21 +94,19 @@ contract Zen {
     /// @notice Creates a new swap.
     /// @param offerTokens Tokens being offered.
     /// @param requestTokens Tokens being requested.
-    /// @param to Opposing party the swap is initiated with.
+    /// @param recipient The recipient of the swap request.
     /// @param allotedTime Time allocated for the swap, until it expires and becomes invalid.
     function createSwap(
         Token[] calldata offerTokens,
         Token[] calldata requestTokens,
-        address to,
+        address recipient,
         uint256 allotedTime
     ) external {
         if (offerTokens.length == 0 && requestTokens.length == 0)
             revert InvalidInput();
         if (allotedTime == 0) revert InvalidInput();
         if (allotedTime >= 365 days) revert InvalidInput();
-        if (to == address(0)) revert InvalidInput();
-        if (!_checkCompliance(offerTokens, requestTokens))
-            revert NoncompliantTokens();
+        if (recipient == address(0)) revert InvalidInput();
 
         uint256 offerLength = offerTokens.length;
         uint256 requestLength = requestTokens.length;
@@ -105,7 +129,7 @@ contract Zen {
 
         Swap memory newSwap = Swap(
             _currentSwapId,
-            to,
+            recipient,
             uint64(block.timestamp),
             uint24(allotedTime),
             SwapStatus.ACTIVE
@@ -114,29 +138,29 @@ contract Zen {
         getSwapIndex[_currentSwapId] = getSwaps[msg.sender].length;
         getSwaps[msg.sender].push(newSwap);
 
+        emit SwapCreated(_currentSwapId, msg.sender, recipient);
+
         _currentSwapId++;
     }
 
     /// @notice Accepts an existing swap.
     /// @param id The id of the swap to accept.
-    /// @param offerer The address of the offering party that initiated the swap
-    function acceptSwap(uint256 id, address offerer) external {
+    /// @param sender The address of the user that sent the swap request
+    function acceptSwap(uint256 id, address sender) external {
         uint256 swapIndex = getSwapIndex[id];
-        Swap memory swap = getSwaps[offerer][swapIndex];
+        Swap memory swap = getSwaps[sender][swapIndex];
 
         if (swap.status == SwapStatus.INACTIVE) revert InactiveSwap();
         if (swap.status == SwapStatus.COMPLETE) revert AlreadyCompleted();
-        if (swap.to != msg.sender) revert InvalidReceipient();
+        if (swap.recipient != msg.sender) revert InvalidReceipient();
         if (block.timestamp > swap.createdAt + swap.allotedTime)
             revert InactiveSwap();
 
-        getSwaps[offerer][swapIndex].status = SwapStatus.COMPLETE;
+        getSwaps[sender][swapIndex].status = SwapStatus.COMPLETE;
 
-        _swapTokens(
-            getOfferTokens[swap.id],
-            getRequestTokens[swap.id],
-            offerer
-        );
+        _swapTokens(getOfferTokens[swap.id], getRequestTokens[swap.id], sender);
+
+        emit SwapAccepted(id, sender, msg.sender);
     }
 
     function _swapTokens(
@@ -166,7 +190,7 @@ contract Zen {
                         msg.sender,
                         to,
                         offerTokens[i].tokenIds[j],
-                        offerTokens[i].quantities[j],
+                        offerTokens[i].tokenQuantities[j],
                         ""
                     );
                 } else if (
@@ -177,7 +201,7 @@ contract Zen {
                     IERC721(offerTokens[i].contractAddress).transferFrom(
                         msg.sender,
                         to,
-                        offerTokens[i].quantities[0]
+                        offerTokens[i].tokenQuantities[0]
                     );
                 } else {
                     revert NoncompliantTokens();
@@ -215,7 +239,7 @@ contract Zen {
                             to,
                             msg.sender,
                             requestTokens[i].tokenIds[j],
-                            requestTokens[i].quantities[j],
+                            requestTokens[i].tokenQuantities[j],
                             ""
                         );
                 } else if (
@@ -226,7 +250,7 @@ contract Zen {
                     IERC721(offerTokens[i].contractAddress).transferFrom(
                         to,
                         msg.sender,
-                        requestTokens[i].quantities[0]
+                        requestTokens[i].tokenQuantities[0]
                     );
                 } else {
                     revert NoncompliantTokens();
@@ -243,41 +267,23 @@ contract Zen {
         }
     }
 
-    function _checkCompliance(Token[] memory offer, Token[] memory request)
-        internal
-        view
-        returns (bool)
-    {
-        uint256 offerLength = offer.length;
-        uint256 requestLength = request.length;
-        for (uint256 i; i < offerLength; ) {
-            if (!_supportsInterfaces(offer[i].contractAddress))
-                revert NoncompliantTokens();
-            unchecked {
-                ++i;
-            }
-        }
-
-        return true;
-    }
-
-    function _supportsInterfaces(address contractAddress)
-        internal
-        view
-        returns (bool)
-    {
-        return
-            IERC165(contractAddress).supportsInterface(0xd9b67a26) ||
-            IERC165(contractAddress).supportsInterface(0x80ac58cd);
-    }
-
     /// @notice Gets the details of a single existing Swap.
     function getSwapSingle(uint256 id, address offerer)
         external
         view
-        returns (Swap memory)
+        returns (Swap memory singleSwap)
     {
-        return getSwaps[offerer][getSwapIndex[id]];
+        singleSwap = getSwaps[offerer][getSwapIndex[id]];
+    }
+
+    /// @dev Function provided since Solidity converts public array to index getters.
+    function getSwapOffer(uint256 id) external view returns (Token[] memory) {
+        return getOfferTokens[id];
+    }
+
+    /// @dev Function provided since Solidity converts public array to index getters.
+    function getSwapRequest(uint256 id) external view returns (Token[] memory) {
+        return getRequestTokens[id];
     }
 
     /// @notice Gets all details of outgoing Swaps.
@@ -286,35 +292,17 @@ contract Zen {
     function getSwapsOutgoing(address user)
         external
         view
-        returns (Swap[] memory)
+        returns (Swap[] memory outgoingSwaps)
     {
-        return getSwaps[user];
+        outgoingSwaps = getSwaps[user];
     }
-
-    /// @notice Gets all details of existing swaps.
-    /// @param user The user to get incoming swaps for.
-    // function getSwapsIncoming(address user)
-    //     external
-    //     view
-    //     returns (Swap[] memory)
-    // {
-    //     uint256 length = getIncomingData[user].length;
-    //     Swap[] memory swaps = new Swap[](length);
-
-    //     for (uint256 i; i < length; i++) {
-    //         IncomingData memory data = getIncomingData[user][i];
-    //         swaps[i] = getSwaps[data.from][getSwapIndex[data.id]];
-    //     }
-
-    //     return swaps;
-    // }
 
     /// @notice Extends existing swap alloted time
     /// @param allotedTime Amount of time to increase swap alloted time for
     function extendAllotedTime(uint256 id, uint24 allotedTime) external {
         Swap storage swap = getSwaps[msg.sender][getSwapIndex[id]];
 
-        if (swap.status == SwapStatus.INACTIVE) revert InvalidInput();
+        if (swap.status == SwapStatus.INACTIVE) revert InactiveSwap();
 
         swap.allotedTime = swap.allotedTime + allotedTime;
     }
@@ -326,5 +314,7 @@ contract Zen {
         if (swap.status == SwapStatus.INACTIVE) revert InvalidInput();
 
         swap.status = SwapStatus.INACTIVE;
+
+        emit SwapCancelled(id, msg.sender, swap.recipient);
     }
 }
