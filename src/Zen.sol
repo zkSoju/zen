@@ -27,7 +27,8 @@ contract Zen {
     event SwapCreated(
         uint256 indexed swapId,
         address indexed sender,
-        address indexed recipient
+        address indexed recipient,
+        uint256 allotedTime
     );
 
     event SwapAccepted(
@@ -138,7 +139,7 @@ contract Zen {
         getSwapIndex[_currentSwapId] = getSwaps[msg.sender].length;
         getSwaps[msg.sender].push(newSwap);
 
-        emit SwapCreated(_currentSwapId, msg.sender, recipient);
+        emit SwapCreated(_currentSwapId, msg.sender, recipient, allotedTime);
 
         _currentSwapId++;
     }
@@ -177,8 +178,8 @@ contract Zen {
                     )
                 ) {
                     IERC721(offerTokens[i].contractAddress).transferFrom(
-                        msg.sender,
                         to,
+                        msg.sender,
                         offerTokens[i].tokenIds[j]
                     );
                 } else if (
@@ -187,8 +188,8 @@ contract Zen {
                     )
                 ) {
                     IERC1155(offerTokens[i].contractAddress).safeTransferFrom(
-                        msg.sender,
                         to,
+                        msg.sender,
                         offerTokens[i].tokenIds[j],
                         offerTokens[i].tokenQuantities[j],
                         ""
@@ -199,8 +200,8 @@ contract Zen {
                     )
                 ) {
                     IERC721(offerTokens[i].contractAddress).transferFrom(
-                        msg.sender,
                         to,
+                        msg.sender,
                         offerTokens[i].tokenQuantities[0]
                     );
                 } else {
@@ -226,8 +227,8 @@ contract Zen {
                     )
                 ) {
                     IERC721(requestTokens[i].contractAddress).transferFrom(
-                        to,
                         msg.sender,
+                        to,
                         requestTokens[i].tokenIds[j]
                     );
                 } else if (
@@ -236,8 +237,8 @@ contract Zen {
                     )
                 ) {
                     IERC1155(requestTokens[i].contractAddress).safeTransferFrom(
-                            to,
                             msg.sender,
+                            to,
                             requestTokens[i].tokenIds[j],
                             requestTokens[i].tokenQuantities[j],
                             ""
@@ -248,8 +249,8 @@ contract Zen {
                     )
                 ) {
                     IERC721(offerTokens[i].contractAddress).transferFrom(
-                        to,
                         msg.sender,
+                        to,
                         requestTokens[i].tokenQuantities[0]
                     );
                 } else {
