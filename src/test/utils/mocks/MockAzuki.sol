@@ -34,23 +34,4 @@ contract MockAzuki is ERC721 {
         _safeMint(msg.sender, currentSupply);
         currentSupply += 1;
     }
-
-    function getTokenIds(address _owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        uint256 length = balanceOf(_owner);
-        uint256[] memory tokensOfOwner = new uint256[](length);
-
-        for (uint256 i; i < length; ) {
-            tokensOfOwner[i] = tokenOfOwnerByIndex(_owner, i);
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return tokensOfOwner;
-    }
 }
