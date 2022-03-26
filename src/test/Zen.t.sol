@@ -44,7 +44,7 @@ contract ZenTest is DSTestPlus {
         vm.stopPrank();
     }
 
-    function testIllegitimateSwap() public {
+    function testFailSingleSwap() public {
         startHoax(address(1337), address(1337));
 
         azuki.mint();
@@ -79,9 +79,6 @@ contract ZenTest is DSTestPlus {
 
         startHoax(address(1337), address(1337));
 
-        vm.expectRevert(
-            bytes4(keccak256("ERC721: transfer from incorrect owner"))
-        );
         zen.acceptSwap(0, address(0xBEEF));
 
         vm.stopPrank();
