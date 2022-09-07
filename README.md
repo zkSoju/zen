@@ -4,6 +4,9 @@ Introducing Zen, Zen is the garden inclusive and zero fee swapping mechanism for
 
 [Website](https://zenswap.xyz/)
 
+Feel free to test the dApp by minting a test NFT on Rinkeby:
+https://rinkeby.etherscan.io/address/0x5ac976a37067eec00c1de7dc5b9b6d37d93e56c2
+
 Refer to https://github.com/zkSoju/zen-next for the dApp.
 
 ## Features
